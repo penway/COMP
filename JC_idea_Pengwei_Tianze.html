@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertical Compression: OCT Tokenization (Light)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #f3f4f6;
+            /* Light grey background */
+            color: #1f2937;
+            /* Dark grey text */
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Layout Containers */
+        #text-container {
+            width: 50%;
+            height: 100%;
+            padding: 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 10;
+            transition: transform 0.5s ease, opacity 0.5s ease;
+            background: rgba(255, 255, 255, 0.95);
+            /* White glassmorphism */
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.05);
+            /* Subtle shadow */
+        }
+
+        #canvas-container {
+            width: 50%;
+            height: 100%;
+            position: absolute;
+            right: 0;
+            top: 0;
+            transition: width 0.8s ease-in-out;
+        }
+
+        /* Slide Content Styling */
+        .slide {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .slide.active {
+            display: block;
+            opacity: 1;
+            animation: fadeIn 0.8s ease forwards;
+        }
+
+        h1 {
+            font-size: 3rem;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            /* Deep Indigo/Purple */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            color: #4b5563;
+            margin-bottom: 30px;
+        }
+
+        ul {
+            line-height: 2;
+            font-size: 1.3rem;
+            color: #374151;
+            /* Darker grey for readability */
+        }
+
+        li {
+            margin-bottom: 15px;
+        }
+
+        strong {
+            color: #7c3aed;
+            /* Purple emphasis */
+        }
+
+        .stat {
+            font-size: 0.9rem;
+            color: #4f46e5;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Navigation Buttons */
+        .nav-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 40px;
+            display: flex;
+            gap: 15px;
+            z-index: 20;
+        }
+
+        button.nav-btn {
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.05);
+            /* Light grey button */
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #374151;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        button.nav-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+            color: #111827;
+        }
+
+        /* Fullscreen Mode for Last Slide */
+        body.fullscreen-mode #text-container {
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        body.fullscreen-mode #canvas-container {
+            width: 100%;
+        }
+
+        /* Floating title for final slide */
+        #final-overlay {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 1s delay 0.5s;
+            z-index: 20;
+        }
+
+        #final-overlay h1 {
+            /* Override h1 gradient for dark-on-light overlay if needed, but gradient works OK */
+            text-shadow: 0 4px 10px rgba(255, 255, 255, 0.8);
+        }
+
+        #final-overlay p {
+            color: #6b7280 !important;
+            /* Force grey */
+        }
+
+        body.fullscreen-mode #final-overlay {
+            opacity: 1;
+        }
+
+        /* Fullscreen navigation button */
+        #fullscreen-nav {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 30;
+            display: none;
+        }
+
+        body.fullscreen-mode #fullscreen-nav {
+            display: block;
+        }
+
+        #fullscreen-nav .nav-btn {
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Interactive mode control buttons */
+        #interactive-controls {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        body.fullscreen-mode #interactive-controls {
+            display: flex;
+        }
+
+        #interactive-controls button {
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            min-width: 140px;
+            text-align: left;
+        }
+
+        #interactive-controls button:hover {
+            transform: translateX(5px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        #interactive-controls button.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="text-container">
+
+        <div class="slide active" id="slide-0">
+            <p style="color: #6b7280; font-size: 1.1rem; margin-bottom: 4px; letter-spacing: 0.5px;">Journal Club 2025
+                Idea Proposal</p>
+            <p style="color: #1f2937; font-size: 1.4rem; font-weight: 600; margin-bottom: 20px;">Pengwei Wang, Tianze
+                Tang</p>
+            <h1
+                style="color: #000000; font-size: 3.5rem; margin-bottom: 40px; background: none; -webkit-text-fill-color: initial;">
+                Does 3D OCT Worth 10k Tokens?</h1>
+            <div class="stat">The Problem</div>
+            <h1>The 10k Token Bottleneck</h1>
+            <ul>
+                <li>Current 3D encoders uses a patch size of <strong>32×32×3</strong>.</li>
+                <li>Result: For an image size of <strong>512×512×128</strong>, it creates <strong>10,000+
+                        tokens</strong> per OCT volume.</li>
+                <li><strong>Multimodal Mismatch:</strong> Fundus images only use ~1,000 tokens. This forces complex
+                    spatial learning.</li>
+                <li><strong>Waste:</strong> ~60% of tokens (vitreous/choroid) encode meaningless noise.</li>
+            </ul>
+        </div>
+
+        <div class="slide" id="slide-1">
+            <div class="stat">The Proposal</div>
+            <h1>A-Scan Compression</h1>
+            <ul>
+                <li><strong>Vertical Tokenization:</strong> Compress the entire depth (A-scan) into a single token unit.
+                </li>
+                <li><strong>Result:</strong> An exact grid that could match the normal input of a Vision Transformer.
+                </li>
+                <li><strong>Native Alignment:</strong> Matches the spatial layout of 2D Fundus images perfectly.</li>
+                <li>Zero noise tokens. 100% signal focus.</li>
+            </ul>
+        </div>
+
+        <div class="slide" id="slide-2">
+            <div class="stat">Feasibility</div>
+            <h1>The 10x Compression</h1>
+            <ul>
+                <li><strong>Challenge:</strong> Compressing 10k pixels (A-scan) into 1 embedding.</li>
+                <li><strong>Why it works:</strong> Retinal layers are highly structured, not random.</li>
+                <li>We use <strong>Geometric Priors</strong> to leverage the correlation along the Z-axis.</li>
+                <li>Reduces sequence length by <strong>90%</strong>.</li>
+                <li>Alternative solutions: This problem is already how to meaningfully compress the A-scan.Maybe could
+                    be compress to several tokens instead of one. This could still reduce a lot of tokens.</li>
+            </ul>
+        </div>
+
+        <div class="slide" id="slide-3">
+        </div>
+
+        <div class="nav-controls">
+            <button class="nav-btn" id="prevBtn">← Previous</button>
+            <button class="nav-btn" id="nextBtn">Next →</button>
+        </div>
+    </div>
+
+    <div id="final-overlay">
+        <h1 style="text-shadow: 0 4px 10px rgba(255,255,255,0.8);">Interactive Demo</h1>
+        <p style="color: #6b7280;">Drag to rotate • Scroll to zoom</p>
+    </div>
+
+    <div id="fullscreen-nav">
+        <button class="nav-btn" id="fullscreenPrevBtn">← Previous</button>
+    </div>
+
+    <!-- Toggle Dense Mode Button (Absolute Top Right) -->
+    <button id="slideToggleDenseBtn" class="nav-btn"
+        style="position: absolute; top: 20px; right: 20px; z-index: 100; display: none;">Switch to Token View</button>
+
+    <div id="interactive-controls">
+        <!-- Group 1: Modes -->
+        <button id="octDenseBtn" class="btn-mode">OCT Cube Dense</button>
+        <button id="octTokenBtn" class="btn-mode">OCT Cube Token</button>
+        <button id="compDenseBtn" class="btn-mode active">COMP Dense</button>
+        <button id="compTokenBtn" class="btn-mode">COMP Token</button>
+        <button id="voxelBtn" class="btn-mode">Voxel</button>
+
+        <!-- Group 2: Toggles -->
+        <div class="group-separator"></div>
+        <button id="toggleOCTBtn" class="btn-toggle">Toggle OCT Layer</button>
+        <button id="toggleLegendBtn" class="btn-toggle">Toggle Legend</button>
+
+        <!-- Group 3: Views -->
+        <div class="group-separator"></div>
+        <button id="toggleBScanViewBtn" class="btn-view">B-scan View</button>
+        <button id="toggleEnFaceViewBtn" class="btn-view">En-face View</button>
+        <button id="defaultViewBtn" class="btn-view">Default View</button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        /* Group Separator */
+        .group-separator {
+            height: 15px;
+        }
+
+        /* Base Button Style Override */
+        #interactive-controls button {
+            /* Reset base styles handled by specific classes, keeping layout props */
+            transition: all 0.3s ease;
+        }
+
+        /* Group 1: Modes (Purple) */
+        .btn-mode {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            color: white;
+            /* Ensure white text on dark buttons */
+        }
+
+        .btn-mode:hover {
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-mode.active {
+            background: linear-gradient(135deg, #a855f7 0%, #d946ef 100%);
+            /* Brighter Purple/Pink */
+            box-shadow: 0 4px 15px rgba(217, 70, 239, 0.4);
+        }
+
+        /* Group 2: Toggles (Grey -> Green) */
+        .btn-toggle {
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+            /* Lighter Grey for Light Mode */
+            box-shadow: 0 4px 15px rgba(107, 114, 128, 0.4);
+            color: white;
+        }
+
+        .btn-toggle:hover {
+            background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+        }
+
+        .btn-toggle.active {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            /* Green */
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        /* Group 3: Views (Teal/Cyan) */
+        .btn-view {
+            background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4);
+            color: white;
+        }
+
+        .btn-view:hover {
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.6);
+            transform: translateX(5px);
+        }
+
+        .btn-view:active {
+            transform: scale(0.98);
+        }
+    </style>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { Line2 } from 'three/addons/lines/Line2.js';
+        import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+        import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import TWEEN from 'three/addons/libs/tween.module.js';
+
+        // --- 1. Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf3f4f6); // Light Grey Background
+
+        // Use orthographic camera like test-cube
+        const aspect = container.clientWidth / container.clientHeight;
+        const frustumSize = 150; // Match test-cube
+        const camera = new THREE.OrthographicCamera(
+            frustumSize * aspect / -2, frustumSize * aspect / 2,
+            frustumSize / 2, frustumSize / -2,
+            0.1, 1000
+        );
+        // Initial Position (Default View from test-cube)
+        camera.position.set(-100, 50, -150);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enableZoom = true;
+        controls.minZoom = 0.3;
+        controls.maxZoom = 5.0;
+
+        // Disable interaction initially to focus on presentation
+        controls.enabled = false;
+
+        // Lights - Increase intensity for light mode
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.9);
+        dirLight1.position.set(50, 50, 50);
+        scene.add(dirLight1);
+        const dirLight2 = new THREE.DirectionalLight(0x667eea, 0.5); // Accents
+        dirLight2.position.set(-50, -50, -50);
+        scene.add(dirLight2);
+
+        // --- 2. Object Creation ---
+        const cubeSize = 100; // Match test-cube size
+        let gridGroup = null;
+        let octPlane = null;
+        let octPlaneBack = null;
+        let legendGroup = null;
+        let showLegend = true;
+
+        // Render state variables
+        let resX = 32;
+        let resY = 32;
+        let resZ = 16;
+        let isTokenized = false;
+        let showThickLines = true;
+        let tokenizationType = 'oct'; // 'oct' or 'comp'
+
+        // Base Cube - Lighter?
+        const geometry = new THREE.BoxGeometry(cubeSize - 0.1, cubeSize - 0.1, cubeSize - 0.1);
+        const material = new THREE.MeshPhongMaterial({
+            color: 0xeeeeee, /* Lighter base */
+            emissive: 0x888888, /* Higher emissive to be bright */
+            shininess: 30
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        // OCT Layer (SVG)
+        function createOCTLayer() {
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("width", "512");
+            svg.setAttribute("height", "512");
+            svg.setAttribute("viewBox", "0 0 512 512");
+
+            // Background (vitreous - dark) -> Keep Dark in OCT, maybe? Or lighter. 
+            // In medical images, vitreous is usually black (no signal). Let's keep it black for realism.
+            const vitreous = document.createElementNS(svgNS, "rect");
+            vitreous.setAttribute("width", "512");
+            vitreous.setAttribute("height", "150");
+            vitreous.setAttribute("fill", "#111827"); /* Dark grey instead of pure black */
+            svg.appendChild(vitreous);
+
+            // Define layer positions (Same as before)
+            const foveaDepth = 35;
+            const foveaWidth = 100;
+            const centerX = 256;
+
+            // Layer 1: NFL/GCL
+            const layer1Top = 150;
+            const layer1Bottom = 200;
+            const layer1 = document.createElementNS(svgNS, "path");
+            const layer1Path = `
+                M 0,${layer1Top}
+                L ${(512 - foveaWidth) / 2},${layer1Top}
+                Q ${centerX},${layer1Top + foveaDepth * 0.3} ${(512 + foveaWidth) / 2},${layer1Top}
+                L 512,${layer1Top}
+                L 512,${layer1Bottom}
+                L 0,${layer1Bottom}
+                Z`;
+            layer1.setAttribute("d", layer1Path);
+            layer1.setAttribute("fill", "#CD5C5C");
+            layer1.setAttribute("opacity", "0.85");
+            svg.appendChild(layer1);
+
+            // Layer 2: INL
+            const layer2Top = layer1Bottom;
+            const layer2Bottom = 250;
+            const layer2 = document.createElementNS(svgNS, "path");
+            const layer2Path = `
+                M 0,${layer2Top}
+                L 512,${layer2Top}
+                L 512,${layer2Bottom}
+                L ${(512 + foveaWidth) / 2},${layer2Bottom}
+                Q ${centerX},${layer2Bottom + foveaDepth * 0.4} ${(512 - foveaWidth) / 2},${layer2Bottom}
+                L 0,${layer2Bottom}
+                Z`;
+            layer2.setAttribute("d", layer2Path);
+            layer2.setAttribute("fill", "#FF8C42");
+            layer2.setAttribute("opacity", "0.85");
+            svg.appendChild(layer2);
+
+            // Layer 3: OPL/ONL
+            const layer3Top = layer2Bottom;
+            const layer3Bottom = 310;
+            const layer3 = document.createElementNS(svgNS, "path");
+            const layer3Path = `
+                M 0,${layer3Top}
+                L ${(512 - foveaWidth) / 2},${layer3Top}
+                Q ${centerX},${layer3Top + foveaDepth * 0.4} ${(512 + foveaWidth) / 2},${layer3Top}
+                L 512,${layer3Top}
+                L 512,${layer3Bottom}
+                L 0,${layer3Bottom}
+                Z`;
+            layer3.setAttribute("d", layer3Path);
+            layer3.setAttribute("fill", "#FFD93D");
+            layer3.setAttribute("opacity", "0.85");
+            svg.appendChild(layer3);
+
+            // Layer 4: Photoreceptors
+            const layer4Top = layer3Bottom;
+            const layer4Bottom = 370;
+            const layer4 = document.createElementNS(svgNS, "rect");
+            layer4.setAttribute("y", String(layer4Top));
+            layer4.setAttribute("width", "512");
+            layer4.setAttribute("height", String(layer4Bottom - layer4Top));
+            layer4.setAttribute("fill", "#6BCB77");
+            layer4.setAttribute("opacity", "0.85");
+            svg.appendChild(layer4);
+
+            // Layer 5: RPE/Choroid
+            const layer5Top = layer4Bottom;
+            const layer5Bottom = 512;
+            const layer5 = document.createElementNS(svgNS, "rect");
+            layer5.setAttribute("y", String(layer5Top));
+            layer5.setAttribute("width", "512");
+            layer5.setAttribute("height", String(layer5Bottom - layer5Top));
+            layer5.setAttribute("fill", "#4D96FF");
+            layer5.setAttribute("opacity", "0.85");
+            svg.appendChild(layer5);
+
+            // Boundaries
+            const boundaries = [layer1Bottom, layer2Bottom, layer3Bottom, layer4Bottom];
+            boundaries.forEach(y => {
+                const line = document.createElementNS(svgNS, "line");
+                line.setAttribute("x1", "0");
+                line.setAttribute("x2", "512");
+                line.setAttribute("y1", String(y));
+                line.setAttribute("y2", String(y));
+                line.setAttribute("stroke", "#ffffff");
+                line.setAttribute("stroke-width", "1");
+                line.setAttribute("opacity", "0.4");
+                svg.appendChild(line);
+            });
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load(url, (texture) => {
+                const planeGeometry = new THREE.PlaneGeometry(cubeSize, cubeSize);
+                const planeMaterial = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.9,
+                    side: THREE.DoubleSide
+                });
+                octPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+                octPlane.position.z = cubeSize / 2 - 0.01; // Under grid
+                // Set initial visibility based on current slide state
+                octPlane.visible = states[currentSlide].octVisible;
+                scene.add(octPlane);
+
+                octPlaneBack = new THREE.Mesh(planeGeometry, planeMaterial.clone());
+                octPlaneBack.position.z = -cubeSize / 2 + 0.01; // Under grid
+                octPlaneBack.rotation.y = Math.PI;
+                // Set initial visibility based on current slide state
+                octPlaneBack.visible = states[currentSlide].octVisible;
+                scene.add(octPlaneBack);
+
+                URL.revokeObjectURL(url);
+            });
+        }
+        createOCTLayer();
+
+        // Legend (from test-cube)
+        function createLegend() {
+            legendGroup = new THREE.Group();
+            const arrowLength = 30;
+
+            // Colors for Legend: Dark Grey in Light Mode
+            const arrowColor = 0x333333;
+
+            // B-scan arrow (depth)
+            const bscanDir = new THREE.Vector3(0, 0, -1);
+            const bscanOrigin = new THREE.Vector3(cubeSize / 2, cubeSize / 2, cubeSize / 2).add(new THREE.Vector3(20, 20, -35));
+            const bscanArrow = new THREE.ArrowHelper(bscanDir, bscanOrigin, arrowLength, arrowColor, 5, 3);
+            legendGroup.add(bscanArrow);
+
+            // A-scan arrow (vertical)
+            const ascanDir = new THREE.Vector3(0, -1, 0);
+            const ascanOrigin = new THREE.Vector3(cubeSize / 2, 0, -cubeSize / 2).add(new THREE.Vector3(20, 15, -20));
+            const ascanArrow = new THREE.ArrowHelper(ascanDir, ascanOrigin, arrowLength, arrowColor, 5, 3);
+            legendGroup.add(ascanArrow);
+
+            // Fast-scan arrow (horizontal)
+            const fastscanDir = new THREE.Vector3(1, 0, 0);
+            const fastscanOrigin = new THREE.Vector3(-cubeSize / 2, cubeSize / 2, -cubeSize / 2).add(new THREE.Vector3(35, 20, -20));
+            const fastscanArrow = new THREE.ArrowHelper(fastscanDir, fastscanOrigin, arrowLength, arrowColor, 5, 3);
+            legendGroup.add(fastscanArrow);
+
+            // Helper to create outlined square
+            function createOutlinedSquare(size, color, position, rotation, labelText) {
+                const group = new THREE.Group();
+                const geometry = new THREE.PlaneGeometry(size, size);
+                const edges = new THREE.EdgesGeometry(geometry);
+                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 2 }); /* Dark Outline */
+                const outline = new THREE.LineSegments(edges, lineMaterial);
+                group.add(outline);
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 0.1;
+                ctx.fillRect(0, 0, 512, 512);
+                ctx.translate(512, 0);
+                ctx.scale(-1, 1);
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = '#ffffff'; /* Pure White Text */
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(labelText, 256, 256);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                const fillMaterial = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                });
+                const fill = new THREE.Mesh(geometry, fillMaterial);
+                group.add(fill);
+
+                group.position.copy(position);
+                if (rotation) {
+                    group.rotation.x = rotation.x || 0;
+                    group.rotation.y = rotation.y || 0;
+                    group.rotation.z = rotation.z || 0;
+                }
+                return group;
+            }
+
+            // B-scan square
+            const bscanSquare = createOutlinedSquare(
+                cubeSize + 20, '#0066ff',
+                new THREE.Vector3(0, 0, -cubeSize / 2 - 10),
+                null, 'B-scan View'
+            );
+            legendGroup.add(bscanSquare);
+
+            // En-face square
+            const enfaceSquare = createOutlinedSquare(
+                cubeSize + 20, '#ff6600',
+                new THREE.Vector3(0, cubeSize / 2 + 10, 0),
+                { x: Math.PI / 2, y: 0, z: 0 }, 'En-face View'
+            );
+            legendGroup.add(enfaceSquare);
+
+            // Text Labels
+            function createTextLabel(text, color) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = color; // Used to be passed in, now hardcoded to dark? No, use param.
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, 128, 32);
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.SpriteMaterial({ map: texture });
+                const sprite = new THREE.Sprite(material);
+                sprite.scale.set(15, 3.75, 1);
+                return sprite;
+            }
+
+            const labelColor = '#333333'; // Dark Text
+            const bscanLabel = createTextLabel('B-scan', labelColor);
+            bscanLabel.position.copy(bscanOrigin).add(new THREE.Vector3(0, 0, -arrowLength - 5));
+            legendGroup.add(bscanLabel);
+
+            const ascanLabel = createTextLabel('A-scan', labelColor);
+            ascanLabel.position.copy(ascanOrigin).add(new THREE.Vector3(0, -arrowLength - 5, 0));
+            legendGroup.add(ascanLabel);
+
+            const fastscanLabel = createTextLabel('Fast-scan', labelColor);
+            fastscanLabel.position.copy(fastscanOrigin).add(new THREE.Vector3(arrowLength + 5, 0, 0));
+            legendGroup.add(fastscanLabel);
+
+            legendGroup.visible = showLegend;
+            scene.add(legendGroup);
+        }
+        createLegend();
+
+        // Grid Logic
+        function createGrid() {
+            if (gridGroup) {
+                scene.remove(gridGroup);
+                gridGroup.children.forEach(child => {
+                    if (child.geometry) child.geometry.dispose();
+                });
+            }
+
+            gridGroup = new THREE.Group();
+            const half = cubeSize / 2;
+            const thinLineMaterial = new THREE.LineBasicMaterial({ color: 0x333333 }); /* Dark Lines */
+            const thickLineMaterial = new LineMaterial({
+                color: 0x111111, /* Very Dark Lines */
+                linewidth: 3,
+                resolution: new THREE.Vector2(container.clientWidth, container.clientHeight)
+            });
+
+            // Tokenized grid positions
+            let tokenResX, tokenResY, tokenResZ;
+            if (tokenizationType === 'oct') {
+                tokenResX = 4; tokenResY = 4; tokenResZ = 8;
+            } else {
+                tokenResX = 4; tokenResY = 1; tokenResZ = 4;
+            }
+
+            // Helper to add line
+            function addLine(p1, p2, isThick) {
+                if (isThick) {
+                    const geometry = new LineGeometry();
+                    geometry.setPositions([...p1, ...p2]);
+                    gridGroup.add(new Line2(geometry, thickLineMaterial));
+                } else {
+                    const geometry = new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(...p1), new THREE.Vector3(...p2)
+                    ]);
+                    gridGroup.add(new THREE.Line(geometry, thinLineMaterial));
+                }
+            }
+
+            // X-axis lines (parallel to X)
+            for (let j = 0; j <= resY; j++) {
+                for (let k = 0; k <= resZ; k++) {
+                    const y = (j / resY - 0.5) * cubeSize;
+                    const z = (k / resZ - 0.5) * cubeSize;
+                    const isTokenY = !isTokenized && showThickLines && (j % (resY / tokenResY) === 0);
+                    const isTokenZ = !isTokenized && showThickLines && (k % (resZ / tokenResZ) === 0);
+                    addLine([-half, y, z], [half, y, z], isTokenized || (isTokenY && isTokenZ));
+                }
+            }
+
+            // Y-axis lines (parallel to Y)
+            for (let i = 0; i <= resX; i++) {
+                for (let k = 0; k <= resZ; k++) {
+                    const x = (i / resX - 0.5) * cubeSize;
+                    const z = (k / resZ - 0.5) * cubeSize;
+                    const isTokenX = !isTokenized && showThickLines && (i % (resX / tokenResX) === 0);
+                    const isTokenZ = !isTokenized && showThickLines && (k % (resZ / tokenResZ) === 0);
+                    addLine([x, -half, z], [x, half, z], isTokenized || (isTokenX && isTokenZ));
+                }
+            }
+
+            // Z-axis lines (parallel to Z)
+            for (let i = 0; i <= resX; i++) {
+                for (let j = 0; j <= resY; j++) {
+                    const x = (i / resX - 0.5) * cubeSize;
+                    const y = (j / resY - 0.5) * cubeSize;
+                    const isTokenX = !isTokenized && showThickLines && (i % (resX / tokenResX) === 0);
+                    const isTokenY = !isTokenized && showThickLines && (j % (resY / tokenResY) === 0);
+                    addLine([x, y, -half], [x, y, half], isTokenized || (isTokenX && isTokenY));
+                }
+            }
+            scene.add(gridGroup);
+        }
+
+        // --- 3. Slide Logic & Transitions ---
+        const states = [
+            // Slide 1: Content
+            {
+                resX: 32, resY: 32, resZ: 16,
+                isTokenized: false, showThickLines: true, tokenizationType: 'oct',
+                octVisible: true, legendVisible: false,
+                cam: { x: -100, y: 50, z: -150, zoom: 0.8 }, // Zoom out a bit for slide view
+                interactive: false
+            },
+            // Slide 2: The Solution
+            {
+                resX: 32, resY: 32, resZ: 16,
+                isTokenized: false, showThickLines: true, tokenizationType: 'comp',
+                octVisible: true, legendVisible: false,
+                cam: { x: -100, y: 50, z: -150, zoom: 0.8 },
+                interactive: false
+            },
+            // Slide 3: Feasibility
+            {
+                resX: 32, resY: 32, resZ: 16,
+                isTokenized: false, showThickLines: true, tokenizationType: 'comp',
+                octVisible: true, legendVisible: false,
+                cam: { x: -100, y: 50, z: -150, zoom: 0.8 },
+                interactive: false
+            },
+            // Slide 4: Interactive
+            {
+                resX: 32, resY: 32, resZ: 16,
+                isTokenized: false, showThickLines: true, tokenizationType: 'comp',
+                octVisible: true, legendVisible: true,
+                cam: { x: -100, y: 50, z: -150, zoom: 0.6 },
+                interactive: true
+            }
+        ];
+
+        let currentSlide = 0;
+        const totalSlides = 4;
+
+        function updateSlide(index) {
+            // UI Updates
+            document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+            document.getElementById(`slide-${index}`).classList.add('active');
+
+            // Toggle Density Button Visibility (only on slides 0, 1, 2)
+            const slideToggleBtn = document.getElementById('slideToggleDenseBtn');
+            if (index < 3) {
+                slideToggleBtn.style.display = 'block';
+                // Reset button text based on state logic (defaulting to what's in state? No, current global isTokenized might be changed by user interaction)
+                // Actually, when we switch slides, we reset state from `states`. So check that.
+                // The `createGrid` below uses `state` props from `states[index]`.
+                // BUT, if we stay on slide and toggle, we change global vars. 
+                // Any slide change resets variables from `states[index]`.
+                // So checking `states[index].isTokenized` is correct for initial text.
+                slideToggleBtn.textContent = states[index].isTokenized ? 'Switch to Dense View' : 'Switch to Token View';
+            } else {
+                slideToggleBtn.style.display = 'none';
+            }
+
+            // Fullscreen Toggle
+            if (index === 3) {
+                document.body.classList.add('fullscreen-mode');
+            } else {
+                document.body.classList.remove('fullscreen-mode');
+            }
+
+            // Scene Updates
+            const state = states[index];
+            resX = state.resX; resY = state.resY; resZ = state.resZ;
+            isTokenized = state.isTokenized; showThickLines = state.showThickLines;
+            tokenizationType = state.tokenizationType;
+            createGrid();
+
+            if (octPlane) octPlane.visible = state.octVisible;
+            if (octPlaneBack) octPlaneBack.visible = state.octVisible;
+            if (legendGroup) legendGroup.visible = state.legendVisible;
+
+            controls.enabled = state.interactive;
+
+            // Camera Transition
+            new TWEEN.Tween(camera.position)
+                .to(state.cam, 1000)
+                .easing(TWEEN.Easing.Quadratic.InOut)
+                .start();
+
+            new TWEEN.Tween(camera)
+                .to({ zoom: state.cam.zoom }, 1000)
+                .easing(TWEEN.Easing.Quadratic.InOut)
+                .onUpdate(() => camera.updateProjectionMatrix())
+                .start();
+
+            camera.lookAt(0, 0, 0);
+            controls.target.set(0, 0, 0);
+            controls.update();
+
+            // Sync Legend and OCT Toggle Button State
+            showLegend = state.legendVisible;
+
+            const octBtn = document.getElementById('toggleOCTBtn');
+            const legendBtn = document.getElementById('toggleLegendBtn');
+
+            if (state.octVisible) octBtn.classList.add('active');
+            else octBtn.classList.remove('active');
+
+            if (state.legendVisible) legendBtn.classList.add('active');
+            else legendBtn.classList.remove('active');
+        }
+
+        // --- 4. Controls & Events ---
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlide(currentSlide);
+            }
+        });
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide(currentSlide);
+            }
+        });
+        document.getElementById('fullscreenPrevBtn').addEventListener('click', () => {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide(currentSlide);
+            }
+        });
+
+        // Toggle Dense Slide Button Logic
+        document.getElementById('slideToggleDenseBtn').addEventListener('click', (e) => {
+            const btn = e.target;
+            if (isTokenized) {
+                // Switch to Dense
+                isTokenized = false;
+                showThickLines = true;
+                resX = 32; resY = 32; resZ = 16;
+                btn.textContent = 'Switch to Token View';
+            } else {
+                // Switch to Token
+                isTokenized = true;
+                showThickLines = false;
+                if (tokenizationType === 'oct') {
+                    resX = 4; resY = 4; resZ = 8;
+                } else {
+                    resX = 4; resY = 1; resZ = 4;
+                }
+                btn.textContent = 'Switch to Dense View';
+            }
+            createGrid();
+        });
+
+        // Group 1: Modes - Handle active state strictly for this group
+        const modeButtons = document.querySelectorAll('.btn-mode');
+        function setActiveModeButton(activeBtn) {
+            modeButtons.forEach(btn => btn.classList.remove('active'));
+            if (activeBtn) activeBtn.classList.add('active');
+        }
+
+        document.getElementById('octDenseBtn').addEventListener('click', () => {
+            isTokenized = false; showThickLines = true; tokenizationType = 'oct';
+            resX = 32; resY = 32; resZ = 16;
+            createGrid(); setActiveModeButton(document.getElementById('octDenseBtn'));
+        });
+        document.getElementById('octTokenBtn').addEventListener('click', () => {
+            isTokenized = true; showThickLines = false;
+            resX = 4; resY = 4; resZ = 8;
+            createGrid(); setActiveModeButton(document.getElementById('octTokenBtn'));
+        });
+        document.getElementById('compDenseBtn').addEventListener('click', () => {
+            isTokenized = false; showThickLines = true; tokenizationType = 'comp';
+            resX = 32; resY = 32; resZ = 16;
+            createGrid(); setActiveModeButton(document.getElementById('compDenseBtn'));
+        });
+        document.getElementById('compTokenBtn').addEventListener('click', () => {
+            isTokenized = true; showThickLines = false;
+            resX = 4; resY = 1; resZ = 4;
+            createGrid(); setActiveModeButton(document.getElementById('compTokenBtn'));
+        });
+        document.getElementById('voxelBtn').addEventListener('click', () => {
+            isTokenized = false; showThickLines = false;
+            resX = 32; resY = 32; resZ = 16;
+            createGrid(); setActiveModeButton(document.getElementById('voxelBtn'));
+        });
+
+        // Group 2: Toggles - Independent active state
+        document.getElementById('toggleOCTBtn').addEventListener('click', (e) => {
+            if (octPlane) octPlane.visible = !octPlane.visible;
+            if (octPlaneBack) octPlaneBack.visible = !octPlaneBack.visible;
+            e.target.classList.toggle('active');
+        });
+
+        document.getElementById('toggleLegendBtn').addEventListener('click', (e) => {
+            if (legendGroup) legendGroup.visible = !legendGroup.visible;
+            e.target.classList.toggle('active');
+        });
+
+        function animateCamera(targetPosition, targetLookAt, targetUp) {
+            const duration = 1000;
+            new TWEEN.Tween(camera.position).to(targetPosition, duration).easing(TWEEN.Easing.Quadratic.InOut).start();
+            new TWEEN.Tween(camera.up).to(targetUp, duration).easing(TWEEN.Easing.Quadratic.InOut).start();
+            new TWEEN.Tween(controls.target).to(targetLookAt, duration).easing(TWEEN.Easing.Quadratic.InOut).onUpdate(() => {
+                camera.lookAt(controls.target);
+            }).start();
+        }
+
+        document.getElementById('toggleBScanViewBtn').addEventListener('click', () => {
+            animateCamera(new THREE.Vector3(0, 0, -150), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0));
+        });
+        document.getElementById('toggleEnFaceViewBtn').addEventListener('click', () => {
+            animateCamera(new THREE.Vector3(0, 150, 0), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1));
+        });
+        document.getElementById('defaultViewBtn').addEventListener('click', () => {
+            animateCamera(new THREE.Vector3(-100, 50, -150), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0));
+        });
+
+        window.addEventListener('resize', () => {
+            const aspect = container.clientWidth / container.clientHeight;
+            camera.left = -aspect * 75;
+            camera.right = aspect * 75;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            if (gridGroup && gridGroup.children) {
+                gridGroup.children.forEach(child => {
+                    if (child.material && child.material.resolution) {
+                        child.material.resolution.set(container.clientWidth, container.clientHeight);
+                    }
+                });
+            }
+        });
+
+        // Track container size for smooth resize during transitions
+        let lastWidth = container.clientWidth;
+        let lastHeight = container.clientHeight;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            TWEEN.update();
+
+            // Check if container size changed (for CSS transitions)
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            if (w !== lastWidth || h !== lastHeight) {
+                lastWidth = w;
+                lastHeight = h;
+                const aspect = w / h;
+
+                camera.left = -aspect * 75;
+                camera.right = aspect * 75;
+                camera.updateProjectionMatrix();
+
+                renderer.setSize(w, h); // Use resize to handle pixel ratio if needed? setSize handles css size.
+
+                if (gridGroup && gridGroup.children) {
+                    gridGroup.children.forEach(child => {
+                        if (child.material && child.material.resolution) {
+                            child.material.resolution.set(w, h);
+                        }
+                    });
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        updateSlide(0);
+        animate();
+
+    </script>
+</body>
+
+</html>
