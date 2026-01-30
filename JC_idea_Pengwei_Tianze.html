@@ -231,6 +231,46 @@
                 transform: translateY(0);
             }
         }
+
+        /* Direct Slide Navigation (Bubbles) */
+        #slide-nav {
+            position: absolute;
+            bottom: 30px;
+            right: 40px;
+            z-index: 50;
+            display: flex;
+            gap: 15px;
+        }
+
+        .slide-bubble {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            color: #374151;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .slide-bubble:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: scale(1.1);
+        }
+
+        .slide-bubble.active {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 10px rgba(124, 58, 237, 0.4);
+            transform: scale(1.1);
+        }
     </style>
 </head>
 
@@ -324,6 +364,14 @@
         <button id="toggleBScanViewBtn" class="btn-view">B-scan View</button>
         <button id="toggleEnFaceViewBtn" class="btn-view">En-face View</button>
         <button id="defaultViewBtn" class="btn-view">Default View</button>
+    </div>
+
+    <!-- Direct Slide Navigation Bubbles -->
+    <div id="slide-nav">
+        <button class="slide-bubble" data-slide="0">1</button>
+        <button class="slide-bubble" data-slide="1">2</button>
+        <button class="slide-bubble" data-slide="2">3</button>
+        <button class="slide-bubble" data-slide="3">4</button>
     </div>
 
     <div id="canvas-container"></div>
@@ -918,6 +966,11 @@
 
             if (state.legendVisible) legendBtn.classList.add('active');
             else legendBtn.classList.remove('active');
+
+            // Update Slide Bubbles
+            document.querySelectorAll('.slide-bubble').forEach(b => {
+                b.classList.toggle('active', parseInt(b.getAttribute('data-slide')) === index);
+            });
         }
 
         // --- 4. Controls & Events ---
@@ -937,6 +990,30 @@
             if (currentSlide > 0) {
                 currentSlide--;
                 updateSlide(currentSlide);
+            }
+        });
+
+        // Slide Bubble Click Events
+        document.querySelectorAll('.slide-bubble').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const index = parseInt(btn.getAttribute('data-slide'));
+                currentSlide = index;
+                updateSlide(currentSlide);
+            });
+        });
+
+        // Keyboard Navigation (Arrow Keys)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                if (currentSlide < totalSlides - 1) {
+                    currentSlide++;
+                    updateSlide(currentSlide);
+                }
+            } else if (e.key === 'ArrowLeft') {
+                if (currentSlide > 0) {
+                    currentSlide--;
+                    updateSlide(currentSlide);
+                }
             }
         });
 
